@@ -17,13 +17,13 @@ end
 
 class String
   def from_german_to_f
-    self.gsub(',', '.').to_f
+    self.tr(',', '.').to_f
   end
 end
 
 class Float
   def to_german_s
-    self.to_s.gsub('.', ',')
+    self.to_s.tr('.', ',')
   end
 end
 
@@ -38,6 +38,11 @@ class Modifier
                 'BRAND - Clicks', 'BRAND+CATEGORY - Clicks', 'ADGROUP - Clicks',
                 'KEYWORD - Clicks']
   FLOAT_VALUES = ['Avg CPC', 'CTR', 'Est EPC', 'newBid', 'Costs', 'Avg Pos']
+
+  COMISSION_VALUES = ['Commission Value', 'ACCOUNT - Commission Value', 'CAMPAIGN
+                      - Commission Value', 'BRAND - Commission Value',
+                      'BRAND+CATEGORY - Commission Value', 'ADGROUP - Commission
+                      Value', 'KEYWORD - Commission Value']
 
   LINES_PER_FILE = 120_000
 
@@ -107,47 +112,24 @@ class Modifier
   end
 
   def combine_values(hash)
-    LAST_VALUE_WINS.each do |key|
-      hash[key] = hash[key].last
-    end
-    LAST_REAL_VALUE_WINS.each do |key|
-      hash[key] = hash[key].reject { |v| (v.nil? || v.zero? || v == '0' || v == '') }.last
-    end
-    INT_VALUES.each do |key|
-      hash[key] = hash[key][0].to_s
-    end
-    FLOAT_VALUES.each do |key|
-      hash[key] = hash[key][0].from_german_to_f.to_german_s
-    end
-    ['number of commissions'].each do |key|
-      hash[key] = (@cancellation_factor *
-      hash[key][0].from_german_to_f).to_german_s
-    end
-    ['Commission Value', 'ACCOUNT - Commission Value',
-     'CAMPAIGN - Commission Value', 'BRAND - Commission Value', 'BRAND+CATEGORY
-      - Commission Value', 'ADGROUP - Commission Value', 'KEYWORD -
-        Commission Value'].each do |key|
-      hash[key] = (@cancellation_factor * @saleamount_factor *
-      hash[key][0].from_german_to_f).to_german_s
-    end
+    LAST_VALUE_WINS.each { |key| hash[key] = hash[key].last }
+    LAST_REAL_VALUE_WINS.each { |key| hash[key] = hash[key].reject { |v| (v.nil? || v.zero? || v == '0' || v == '') }.last }
+    INT_VALUES.each { |key| hash[key] = hash[key][0].to_s }
+    FLOAT_VALUES.each { |key| hash[key] = hash[key][0].from_german_to_f.to_german_s }
+    ['number of commissions'].each { |key| hash[key] = (@cancellation_factor * hash[key][0].from_german_to_f).to_german_s }
+    COMISSION_VALUES.each { |key| hash[key] = (@cancellation_factor * @saleamount_factor * hash[key][0].from_german_to_f).to_german_s }
     hash
   end
 
   def combine_hashes(list_of_rows)
     keys = []
     list_of_rows.each do |row|
-      next if row.nil?
-
-      row.headers.each do |key|
-        keys << key
-      end
+      row.headers.each { |key| keys << key } if row.nil?
     end
     result = {}
     keys.each do |key|
       result[key] = []
-      list_of_rows.each do |row|
-        result[key] << (row.nil? ? nil : row[key])
-      end
+      list_of_rows.each { |row| result[key] << (row.nil? ? nil : row[key]) }
     end
     result
   end
@@ -168,7 +150,7 @@ class Modifier
 
   def write(content, headers, output)
     CSV.open(output, 'wb',  col_sep: "\t", headers: :first_row,
-                            row_sep: "\r\n" ) do |csv|
+                            row_sep: "\r\n") do |csv|
       csv << headers
       content.each do |row|
         csv << row
