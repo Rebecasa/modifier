@@ -15,13 +15,13 @@ def latest(name)
   files.last
 end
 
-class String
+class Float
   def from_german_to_f
     self.tr(',', '.').to_f
   end
 end
 
-class Float
+class String
   def to_german_s
     self.to_s.tr('.', ',')
   end
