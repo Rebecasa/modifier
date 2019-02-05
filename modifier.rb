@@ -3,14 +3,11 @@ require 'csv'
 require 'date'
 
 def latest(name)
-  files = Dir["#{ ENV["HOME"] }/workspace/*#{name}*.txt"]
+  files = Dir["#{ENV['HOME']}/workspace/*#{name}*.txt"]
 
   files.sort_by! do |file|
     last_date = /\d+-\d+-\d+_[[:alpha:]]+\.txt$/.match file
-    last_date = last_date.to_s.match /\d+-\d+-\d+/
-
-    date = DateTime.parse(last_date.to_s)
-    date
+    return DateTime.parse(last_date.to_s.match /\d+-\d+-\d+/)
   end
 
   throw RuntimeError if files.empty?
@@ -31,14 +28,18 @@ class Float
 end
 
 class Modifier
-
   KEYWORD_UNIQUE_ID = 'Keyword Unique ID'
-  LAST_VALUE_WINS = ['Account ID', 'Account Name', 'Campaign', 'Ad Group', 'Keyword', 'Keyword Type', 'Subid', 'Paused', 'Max CPC', 'Keyword Unique ID', 'ACCOUNT', 'CAMPAIGN', 'BRAND', 'BRAND+CATEGORY', 'ADGROUP', 'KEYWORD']
+  LAST_VALUE_WINS = ['Account ID', 'Account Name', 'Campaign', 'Ad Group',
+                     'Keyword', 'Keyword Type', 'Subid', 'Paused', 'Max CPC',
+                     'Keyword Unique ID', 'ACCOUNT', 'CAMPAIGN', 'BRAND',
+                     'BRAND+CATEGORY', 'ADGROUP', 'KEYWORD']
   LAST_REAL_VALUE_WINS = ['Last Avg CPC', 'Last Avg Pos']
-  INT_VALUES = ['Clicks', 'Impressions', 'ACCOUNT - Clicks', 'CAMPAIGN - Clicks', 'BRAND - Clicks', 'BRAND+CATEGORY - Clicks', 'ADGROUP - Clicks', 'KEYWORD - Clicks']
+  INT_VALUES = ['Clicks', 'Impressions', 'ACCOUNT - Clicks', 'CAMPAIGN - Clicks',
+                'BRAND - Clicks', 'BRAND+CATEGORY - Clicks', 'ADGROUP - Clicks',
+                'KEYWORD - Clicks']
   FLOAT_VALUES = ['Avg CPC', 'CTR', 'Est EPC', 'newBid', 'Costs', 'Avg Pos']
 
-  LINES_PER_FILE = 120000
+  LINES_PER_FILE = 120_000
 
   def initialize(saleamount_factor, cancellation_factor)
     @saleamount_factor = saleamount_factor
@@ -69,20 +70,22 @@ class Modifier
     done = false
     file_index = 0
     file_name = output.gsub('.txt', '')
-    while not done do
-      CSV.open(file_name + "_#{file_index}.txt", "wb", { :col_sep => "\t", :headers => :first_row, :row_sep => "\r\n" }) do |csv|
+    until done
+      CSV.open(file_name + "_#{file_index}.txt", 'wb', col_sep: "\t", headers:
+                                                      :first_row, row_sep:
+                                                      "\r\n") do |csv|
         headers_written = false
         line_count = 0
         while line_count < LINES_PER_FILE
           begin
             merged = merger.next
-            if not headers_written
+            unless headers_written
               csv << merged.keys
               headers_written = true
-              line_count +=1
+              line_count += 1
             end
             csv << merged
-            line_count +=1
+            line_count += 1
           rescue StopIteration
             done = true
             break
@@ -108,7 +111,7 @@ class Modifier
       hash[key] = hash[key].last
     end
     LAST_REAL_VALUE_WINS.each do |key|
-      hash[key] = hash[key].select {|v| not (v.nil? or v == 0 or v == '0' or v == '')}.last
+      hash[key] = hash[key].reject { |v| (v.nil? || v.zero? || v == '0' || v == '') }.last
     end
     INT_VALUES.each do |key|
       hash[key] = hash[key][0].to_s
@@ -117,10 +120,15 @@ class Modifier
       hash[key] = hash[key][0].from_german_to_f.to_german_s
     end
     ['number of commissions'].each do |key|
-      hash[key] = (@cancellation_factor * hash[key][0].from_german_to_f).to_german_s
+      hash[key] = (@cancellation_factor *
+      hash[key][0].from_german_to_f).to_german_s
     end
-    ['Commission Value', 'ACCOUNT - Commission Value', 'CAMPAIGN - Commission Value', 'BRAND - Commission Value', 'BRAND+CATEGORY - Commission Value', 'ADGROUP - Commission Value', 'KEYWORD - Commission Value'].each do |key|
-      hash[key] = (@cancellation_factor * @saleamount_factor * hash[key][0].from_german_to_f).to_german_s
+    ['Commission Value', 'ACCOUNT - Commission Value',
+     'CAMPAIGN - Commission Value', 'BRAND - Commission Value', 'BRAND+CATEGORY
+      - Commission Value', 'ADGROUP - Commission Value', 'KEYWORD -
+        Commission Value'].each do |key|
+      hash[key] = (@cancellation_factor * @saleamount_factor *
+      hash[key][0].from_german_to_f).to_german_s
     end
     hash
   end
@@ -129,6 +137,7 @@ class Modifier
     keys = []
     list_of_rows.each do |row|
       next if row.nil?
+
       row.headers.each do |key|
         keys << key
       end
@@ -143,7 +152,7 @@ class Modifier
     result
   end
 
-  DEFAULT_CSV_OPTIONS = { :col_sep => "\t", :headers => :first_row }
+  DEFAULT_CSV_OPTIONS = { col_sep: "\t", headers: :first_row }
 
   def parse(file)
     CSV.read(file, DEFAULT_CSV_OPTIONS)
@@ -158,7 +167,8 @@ class Modifier
   end
 
   def write(content, headers, output)
-    CSV.open(output, "wb", { :col_sep => "\t", :headers => :first_row, :row_sep => "\r\n" }) do |csv|
+    CSV.open(output, 'wb',  col_sep: "\t", headers: :first_row,
+                            row_sep: "\r\n" ) do |csv|
       csv << headers
       content.each do |row|
         csv << row
@@ -167,6 +177,7 @@ class Modifier
   end
 
   public
+
   def sort(file)
     output = "#{file}.sorted"
     content_as_table = parse(file)
@@ -174,7 +185,7 @@ class Modifier
     index_of_key = headers.index('Clicks')
     content = content_as_table.sort_by { |a| -a[index_of_key].to_i }
     write(content, headers, output)
-    return output
+    output
   end
 end
 
@@ -184,4 +195,4 @@ cancellaction_factor = 0.4
 modifier = Modifier.new(modification_factor, cancellaction_factor)
 modifier.modify(modified, input)
 
-puts "DONE modifying"
+puts 'DONE modifying'
